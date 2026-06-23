@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Árvore de Ativos PCM – O-I 5010</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f0efe9;--border:#d8d6ce;--border-strong:#b0ada0;
+  --text:#1a1917;--text-muted:#6b6860;--text-faint:#9b9890;
+  --accent:#1a4f8a;--accent-light:#e8f0f8;
+  --n1:#1a4f8a;--n1b:#e8f0f8;--n2:#127a52;--n2b:#e4f5ed;
+  --n3:#8a5a00;--n3b:#fdf0d8;--n4:#8a1a5a;--n4b:#f8e8f2;
+  --n5:#4a3a9a;--n5b:#eeecf8;--n6:#5a5a5a;--n6b:#f0f0f0;
+  --n7:#9a1a1a;--n7b:#f8e8e8;--n8:#2a6a1a;--n8b:#e8f5e4;
+  --green:#127a52;--red:#9a1a1a;--orange:#8a5a00;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+
+/* HEADER */
+.hdr{background:var(--text);color:#fff;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:50}
+.hdr-brand{display:flex;align-items:center;gap:10px}
+.hdr-logo{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:500;color:#fff}
+.hdr-title{font-size:13px;font-weight:500}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.45);font-family:var(--mono)}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--mono);color:rgba(255,255,255,.5)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;transition:background .3s}
+.sync-dot.warn{background:#ff9800}
+.sync-dot.err{background:#f44336}
+.sync-dot.spin{background:#2196f3;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* SETUP BANNER */
+.setup-banner{background:linear-gradient(135deg,#1a4f8a,#0d3060);color:#fff;padding:24px 28px;margin:0;display:flex;flex-direction:column;gap:16px}
+.setup-banner h2{font-size:16px;font-weight:600}
+.setup-banner p{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;max-width:640px}
+.setup-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.setup-field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px}
+.setup-field label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);font-family:var(--mono)}
+.setup-field input{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:12px;font-family:var(--mono);outline:none}
+.setup-field input::placeholder{color:rgba(255,255,255,.35)}
+.setup-field input:focus{border-color:rgba(255,255,255,.5)}
+.btn-connect{padding:8px 18px;border-radius:6px;border:none;background:#fff;color:var(--accent);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;height:36px;align-self:flex-end}
+.btn-connect:hover{background:#e8f0f8}
+.setup-note{font-size:11px;color:rgba(255,255,255,.45);font-family:var(--mono)}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:268px 1fr;min-height:calc(100vh - 52px)}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:52px;height:calc(100vh - 52px);overflow:hidden}
+.sb-sec{padding:14px 14px;border-bottom:1px solid var(--border)}
+.sb-sec h3{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;font-family:var(--mono)}
+.level-list{display:flex;flex-direction:column;gap:3px}
+.level-item{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:4px;cursor:pointer;transition:background .1s}
+.level-item:hover{background:var(--surface2)}
+.level-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.level-name{font-size:12px;flex:1}
+.level-n{font-family:var(--mono);font-size:10px;color:var(--text-faint)}
+.action-group{display:flex;flex-direction:column;gap:5px}
+.btn{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;width:100%;text-align:left}
+.btn:hover{background:var(--surface2);border-color:var(--border-strong)}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:#143d6a}
+.btn.success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.success:hover{background:#0e5a3c}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.danger:hover{background:#7a1010}
+.btn.warn{background:var(--orange);color:#fff;border-color:var(--orange)}
+.node-panel{flex:1;overflow-y:auto;padding:14px}
+.np-empty{text-align:center;color:var(--text-faint);font-size:12px;padding:20px 0;line-height:1.7}
+
+/* MAIN */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 16px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tbtn{padding:5px 11px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s}
+.tbtn:hover{background:var(--surface2)}
+.tbtn.active{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+.t-sep{width:1px;height:20px;background:var(--border);margin:0 3px}
+.tsearch{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 9px}
+.tsearch input{border:none;background:transparent;font-family:var(--font);font-size:12px;color:var(--text);outline:none;width:150px}
+.tsearch input::placeholder{color:var(--text-faint)}
+.tree-wrap{flex:1;overflow-y:auto;padding:14px 16px}
+.tree-empty{text-align:center;color:var(--text-faint);font-size:13px;padding:50px 20px;line-height:1.8}
+.tree-empty span{display:block;font-size:28px;margin-bottom:10px}
+
+/* NODES */
+.node-row{display:flex;align-items:center;border-radius:5px;cursor:pointer;margin-bottom:1px;transition:background .1s}
+.node-row:hover{background:var(--surface2)}
+.node-row.sel{background:var(--accent-light)}
+.node-row.hit{background:#fffbea}
+.indent-seg{width:20px;flex-shrink:0;position:relative}
+.indent-seg::before{content:'';position:absolute;left:9px;top:0;bottom:0;width:1px;background:var(--border)}
+.indent-seg.last::after{content:'';position:absolute;left:9px;top:50%;width:8px;height:1px;background:var(--border)}
+.toggle-zone{width:18px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tog{width:13px;height:13px;border-radius:3px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-muted);cursor:pointer;font-family:var(--mono)}
+.tog:hover{border-color:var(--border-strong);background:var(--surface2)}
+.ndot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin:0 6px}
+.nlabel{flex:1;display:flex;align-items:center;gap:7px;padding:4px 0;min-width:0}
+.nname{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ncode{font-family:var(--mono);font-size:10px;color:var(--text-faint);white-space:nowrap;flex-shrink:0}
+.nbadge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;font-family:var(--mono);flex-shrink:0}
+.ncnt{font-size:10px;color:var(--text-faint);font-family:var(--mono);margin-right:7px;flex-shrink:0}
+.children-wrap{margin-left:0}
+
+/* STATS */
+.stats{background:var(--surface);border-top:1px solid var(--border);padding:5px 16px;display:flex;gap:18px;align-items:center}
+.stat{display:flex;align-items:center;gap:4px;font-size:11px;font-family:var(--mono);color:var(--text-faint)}
+.stat b{color:var(--text-muted);font-weight:500}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(26,25,23,.5);z-index:200;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:22px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:3px}
+.modal-sub{font-size:11px;color:var(--text-muted);margin-bottom:18px;font-family:var(--mono)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);font-family:var(--mono);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font);font-size:13px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:55px}
+.modal-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.modal-actions .btn{width:auto}
+.export-area{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:var(--mono);font-size:11px;color:var(--text);max-height:260px;overflow-y:auto;white-space:pre;line-height:1.6}
+
+/* CONFLICT */
+.conflict-box{background:#fff8e8;border:1px solid #e0b84a;border-radius:7px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.6;color:#5a4000}
+.conflict-box strong{display:block;margin-bottom:5px;font-size:13px}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;padding:9px 16px;border-radius:7px;font-size:12px;font-family:var(--mono);z-index:1000;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#127a52}
+.toast.err{background:#9a1a1a}
+.toast.warn{background:#8a5a00}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo">PCM</div>
+    <div>
+      <div class="hdr-title">Árvore de Ativos</div>
+      <div class="hdr-sub">O-I RIO DE JANEIRO · PLANTA 5010</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-badge">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-status">Offline</span>
+    </div>
+    <button class="tbtn" onclick="manualSync()" id="btn-sync" style="font-size:11px;padding:4px 10px">↺ Sincronizar</button>
+  </div>
+</div>
+
+<!-- SETUP BANNER -->
+<div class="setup-banner" id="setup-banner">
+  <div>
+    <h2>⚙ Configurar conexão com SharePoint via Power Automate</h2>
+    <p>Cole abaixo as URLs dos dois flows que você criou no Power Automate. Depois de salvo, a equipe toda usa o mesmo arquivo HTML e os dados ficam no SharePoint.</p>
+  </div>
+  <div class="setup-row">
+    <div class="setup-field">
+      <label>URL do Flow — CARREGAR (GET)</label>
+      <input id="cfg-get" placeholder="https://prod-XX.westus.logic.azure.com/workflows/..." autocomplete="off">
+    </div>
+    <div class="setup-field">
+      <label>URL do Flow — SALVAR (POST)</label>
+      <input id="cfg-post" placeholder="https://prod-XX.westus.logic.azure.com/workflows/..." autocomplete="off">
+    </div>
+    <button class="btn-connect" onclick="saveConfig()">Conectar</button>
+  </div>
+  <div class="setup-note">
+    As URLs ficam salvas no seu navegador (localStorage). Não são enviadas para nenhum servidor externo.
+    &nbsp;·&nbsp; <span style="cursor:pointer;text-decoration:underline;color:rgba(255,255,255,.6)" onclick="showFlowGuide()">Como criar os flows? →</span>
+  </div>
+</div>
+
+<div class="layout" id="main-layout" style="display:none">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-sec">
+      <h3>Hierarquia — 8 Níveis</h3>
+      <div class="level-list" id="level-legend"></div>
+    </div>
+    <div class="sb-sec">
+      <h3>Ações</h3>
+      <div class="action-group">
+        <button class="btn primary" onclick="openAdd(null)"><span>+</span> Adicionar Raiz</button>
+        <button class="btn" id="btn-add-child" onclick="openAdd(selId)" disabled><span>↳</span> Adicionar Filho</button>
+        <button class="btn" id="btn-edit" onclick="openEdit()" disabled><span>✎</span> Editar</button>
+        <button class="btn danger" id="btn-del" onclick="delSel()" disabled><span>✕</span> Excluir</button>
+      </div>
+    </div>
+    <div class="sb-sec">
+      <h3>SharePoint</h3>
+      <div class="action-group">
+        <button class="btn success" onclick="pushToSP()"><span>↑</span> Salvar no SharePoint</button>
+        <button class="btn" onclick="pullFromSP()"><span>↓</span> Carregar do SharePoint</button>
+        <button class="btn warn" onclick="showConfig()"><span>⚙</span> Reconfigurar URLs</button>
+      </div>
+    </div>
+    <div class="sb-sec">
+      <h3>Exportar / Backup</h3>
+      <div class="action-group">
+        <button class="btn" onclick="showExport()"><span>↓</span> Exportar SAP / CSV</button>
+        <button class="btn" onclick="exportJSON()"><span>{ }</span> Baixar JSON</button>
+        <button class="btn" onclick="openImport()"><span>↑</span> Importar JSON</button>
+      </div>
+    </div>
+    <div class="sb-sec">
+      <h3>Visualização</h3>
+      <div class="action-group">
+        <button class="btn" onclick="expAll()">▼ Expandir tudo</button>
+        <button class="btn" onclick="colAll()">▶ Recolher tudo</button>
+        <button class="btn" onclick="expTo(3)">Até N3</button>
+        <button class="btn" onclick="expTo(5)">Até N5</button>
+      </div>
+    </div>
+    <div class="sb-sec">
+      <h3>Dados</h3>
+      <div class="action-group">
+        <button class="btn" onclick="loadExample()">⟳ Exemplo Planta 5010</button>
+        <button class="btn danger" onclick="clearAll()">⚠ Limpar tudo</button>
+      </div>
+    </div>
+    <div class="node-panel" id="node-panel">
+      <div class="np-empty">Selecione um nó<br>para ver detalhes</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="toolbar">
+      <button class="tbtn" onclick="expAll()">Expandir tudo</button>
+      <button class="tbtn" onclick="colAll()">Recolher tudo</button>
+      <div class="t-sep"></div>
+      <button class="tbtn" onclick="expTo(2)">N2</button>
+      <button class="tbtn" onclick="expTo(3)">N3</button>
+      <button class="tbtn" onclick="expTo(5)">N5</button>
+      <div class="t-sep"></div>
+      <button class="tbtn" onclick="pushToSP()" style="color:var(--green);border-color:var(--green)">↑ Salvar SP</button>
+      <button class="tbtn" onclick="pullFromSP()">↓ Carregar SP</button>
+      <div class="tsearch">
+        <span style="color:var(--text-faint);font-size:11px">🔍</span>
+        <input id="search" placeholder="Buscar nome ou código..." oninput="doSearch(this.value)">
+      </div>
+    </div>
+    <div class="tree-wrap" id="tree-wrap">
+      <div class="tree-empty" id="tree-empty">
+        <span>🏭</span>
+        Nenhum ativo ainda.<br>
+        Use <strong>"Carregar do SharePoint"</strong> para buscar a versão da equipe<br>
+        ou <strong>"Exemplo Planta 5010"</strong> para começar do zero.
+      </div>
+      <div id="tree-root"></div>
+    </div>
+    <div class="stats">
+      <div class="stat">Nós: <b id="s-total">0</b></div>
+      <div class="stat">Equipamentos N7: <b id="s-eq">0</b></div>
+      <div class="stat">Profundidade: <b id="s-dep">0</b></div>
+      <div class="stat">Selecionado: <b id="s-sel">—</b></div>
+      <div class="stat" style="margin-left:auto">Última sync: <b id="s-sync">—</b></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADD -->
+<div class="modal-bg" id="m-add">
+  <div class="modal">
+    <h3 id="m-add-title">Adicionar Nó</h3>
+    <div class="modal-sub" id="m-add-sub"></div>
+    <div class="field"><label>Código</label><input id="a-code" placeholder="Ex: PROD, L91, MF-91-01" style="text-transform:uppercase"></div>
+    <div class="field"><label>Descrição</label><input id="a-name" placeholder="Ex: Produção, Linha 91, Máquina de Formação 01"></div>
+    <div class="field"><label>Nível Hierárquico</label>
+      <select id="a-level">
+        <option value="1">N1 – Planta</option><option value="2">N2 – Área</option>
+        <option value="3">N3 – Subárea</option><option value="4">N4 – Sistema / Linha</option>
+        <option value="5">N5 – Ativo</option><option value="6">N6 – Conjunto</option>
+        <option value="7">N7 – Equipamento</option><option value="8">N8 – Componente</option>
+      </select>
+    </div>
+    <div class="field"><label>Observação (opcional)</label><textarea id="a-obs" placeholder="Criticidade, localização física..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeM('m-add')">Cancelar</button>
+      <button class="btn primary" onclick="confirmAdd()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT -->
+<div class="modal-bg" id="m-edit">
+  <div class="modal">
+    <h3>Editar Nó</h3>
+    <div class="modal-sub" id="e-code-sub"></div>
+    <div class="field"><label>Código</label><input id="e-code" style="text-transform:uppercase"></div>
+    <div class="field"><label>Descrição</label><input id="e-name"></div>
+    <div class="field"><label>Nível</label>
+      <select id="e-level">
+        <option value="1">N1 – Planta</option><option value="2">N2 – Área</option>
+        <option value="3">N3 – Subárea</option><option value="4">N4 – Sistema / Linha</option>
+        <option value="5">N5 – Ativo</option><option value="6">N6 – Conjunto</option>
+        <option value="7">N7 – Equipamento</option><option value="8">N8 – Componente</option>
+      </select>
+    </div>
+    <div class="field"><label>Observação</label><textarea id="e-obs"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeM('m-edit')">Cancelar</button>
+      <button class="btn primary" onclick="confirmEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EXPORT -->
+<div class="modal-bg" id="m-export">
+  <div class="modal" style="width:540px">
+    <h3>Exportar Estrutura</h3>
+    <div class="modal-sub">Formato SAP PM · CSV Excel · Árvore textual</div>
+    <div style="display:flex;gap:7px;margin-bottom:10px">
+      <button class="tbtn" id="fmt-sap" onclick="setFmt('sap')">Formato SAP</button>
+      <button class="tbtn" id="fmt-csv" onclick="setFmt('csv')">CSV (Excel)</button>
+      <button class="tbtn" id="fmt-txt" onclick="setFmt('txt')">Árvore Textual</button>
+    </div>
+    <div class="export-area" id="exp-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeM('m-export')">Fechar</button>
+      <button class="btn success" onclick="copyExp()">Copiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORT -->
+<div class="modal-bg" id="m-import">
+  <div class="modal">
+    <h3>Importar JSON</h3>
+    <div class="modal-sub">Cole o conteúdo de um arquivo JSON exportado anteriormente</div>
+    <div class="field"><label>Conteúdo JSON</label><textarea id="imp-json" style="min-height:160px;font-family:var(--mono);font-size:11px" placeholder='{"tree":[...],"nextId":1}'></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeM('m-import')">Cancelar</button>
+      <button class="btn primary" onclick="confirmImport()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FLOW GUIDE -->
+<div class="modal-bg" id="m-guide">
+  <div class="modal" style="width:600px;max-height:85vh;overflow-y:auto">
+    <h3>Como criar os dois flows no Power Automate</h3>
+    <div class="modal-sub">Passo a passo — ~15 minutos, sem código</div>
+
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.8">
+      <strong style="display:block;margin-bottom:8px;font-size:13px">📋 Pré-requisito: criar uma Lista no SharePoint</strong>
+      1. Abra o SharePoint da O-I → seu site de equipe PCM<br>
+      2. Clique em <b>+ Novo → Lista</b><br>
+      3. Nome: <b>ArvorePCM</b><br>
+      4. Adicione uma coluna do tipo <b>Várias linhas de texto</b> com nome <b>Conteudo</b><br>
+      5. Crie um item chamado <b>arvore_5010</b> nessa lista (deixe Conteudo vazio)
+    </div>
+
+    <div style="background:var(--n2b);border-radius:8px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.8;border:1px solid #b8e8d0">
+      <strong style="display:block;margin-bottom:8px;font-size:13px;color:var(--n2)">▼ FLOW 1 — Carregar (GET)</strong>
+      1. Power Automate → <b>+ Criar → Fluxo de nuvem instantâneo</b><br>
+      2. Trigger: <b>"Quando uma solicitação HTTP é recebida"</b><br>
+      3. Adicionar ação: <b>SharePoint → Obter item</b><br>
+      &nbsp;&nbsp;· Endereço do Site: seu site SharePoint<br>
+      &nbsp;&nbsp;· Nome da Lista: <b>ArvorePCM</b><br>
+      &nbsp;&nbsp;· ID: <b>1</b> (o item que você criou)<br>
+      4. Adicionar ação: <b>Resposta</b><br>
+      &nbsp;&nbsp;· Código de Status: 200<br>
+      &nbsp;&nbsp;· Corpo: <code>@{outputs('Obter_item')?['body/Conteudo']}</code><br>
+      &nbsp;&nbsp;· Cabeçalhos: <code>Content-Type: application/json</code><br>
+      5. Salvar → copie a <b>URL HTTP POST</b> gerada → cole no campo GET deste app
+    </div>
+
+    <div style="background:var(--n1b);border-radius:8px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.8;border:1px solid #b0cce8">
+      <strong style="display:block;margin-bottom:8px;font-size:13px;color:var(--n1)">▲ FLOW 2 — Salvar (POST)</strong>
+      1. Power Automate → <b>+ Criar → Fluxo de nuvem instantâneo</b><br>
+      2. Trigger: <b>"Quando uma solicitação HTTP é recebida"</b><br>
+      &nbsp;&nbsp;· Esquema JSON do Corpo: <code>{"type":"object","properties":{"payload":{"type":"string"}}}</code><br>
+      3. Adicionar ação: <b>SharePoint → Atualizar item</b><br>
+      &nbsp;&nbsp;· Endereço do Site: seu site SharePoint<br>
+      &nbsp;&nbsp;· Nome da Lista: <b>ArvorePCM</b><br>
+      &nbsp;&nbsp;· ID: <b>1</b><br>
+      &nbsp;&nbsp;· Conteudo: <code>@{triggerBody()?['payload']}</code><br>
+      4. Adicionar ação: <b>Resposta</b><br>
+      &nbsp;&nbsp;· Código de Status: 200<br>
+      &nbsp;&nbsp;· Corpo: <code>{"ok":true}</code><br>
+      5. Salvar → copie a <b>URL HTTP POST</b> gerada → cole no campo POST deste app
+    </div>
+
+    <div style="background:#fff8e8;border-radius:8px;padding:12px;font-size:12px;line-height:1.7;border:1px solid #e0c060">
+      <strong>⚠ Importante:</strong> Os flows precisam estar <b>Ativos</b> e com permissão de execução para toda a equipe (compartilhe o flow com os membros da equipe PCM no Power Automate).
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn primary" onclick="closeM('m-guide')">Entendido, vou criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFLICT -->
+<div class="modal-bg" id="m-conflict">
+  <div class="modal">
+    <h3>⚠ Conflito detectado</h3>
+    <div class="modal-sub">O SharePoint tem uma versão mais recente</div>
+    <div class="conflict-box">
+      <strong>O que fazer?</strong>
+      O SharePoint foi atualizado por outro membro da equipe enquanto você trabalhava.<br>
+      Escolha qual versão manter.
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" onclick="resolveConflict('local')">Manter minha versão (sobrescreve SP)</button>
+      <button class="btn primary" onclick="resolveConflict('remote')">Usar versão do SharePoint</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────────────
+const LEVELS=[
+  {n:1,name:'Planta',color:'#1a4f8a',bg:'#e8f0f8'},
+  {n:2,name:'Área',color:'#127a52',bg:'#e4f5ed'},
+  {n:3,name:'Subárea',color:'#8a5a00',bg:'#fdf0d8'},
+  {n:4,name:'Sistema / Linha',color:'#8a1a5a',bg:'#f8e8f2'},
+  {n:5,name:'Ativo',color:'#4a3a9a',bg:'#eeecf8'},
+  {n:6,name:'Conjunto',color:'#5a5a5a',bg:'#f0f0f0'},
+  {n:7,name:'Equipamento',color:'#9a1a1a',bg:'#f8e8e8'},
+  {n:8,name:'Componente',color:'#2a6a1a',bg:'#e8f5e4'},
+];
+const LC={},LB={};
+LEVELS.forEach(l=>{LC[l.n]=l.color;LB[l.n]=l.bg;});
+
+const SK_TREE='pcm_tree_5010';
+const SK_CFG='pcm_sp_config';
+const SK_TS='pcm_last_sync_ts';
+
+// ── STATE ──────────────────────────────────────────────────────────────
+let tree=[], selId=null, nextId=1, addParentId=null, expFmt='sap', searchTerm='';
+let cfgGet='', cfgPost='';
+let lastSyncTs=0;
+let remoteSnapshot='';
+
+// ── INIT ───────────────────────────────────────────────────────────────
+(function init(){
+  buildLegend();
+  loadConfig();
+  const saved=localStorage.getItem(SK_TREE);
+  if(saved){try{const p=JSON.parse(saved);tree=p.tree||[];nextId=p.nextId||1;}catch(e){}}
+  const ts=localStorage.getItem(SK_TS);
+  if(ts) lastSyncTs=parseInt(ts);
+  renderAll();
+  if(cfgGet&&cfgPost){
+    showLayout();
+    setSyncStatus('warn','Não sincronizado');
+  }
+})();
+
+function loadConfig(){
+  const c=localStorage.getItem(SK_CFG);
+  if(c){try{const p=JSON.parse(c);cfgGet=p.get||'';cfgPost=p.post||'';}catch(e){}}
+  if(cfgGet) document.getElementById('cfg-get').value=cfgGet;
+  if(cfgPost) document.getElementById('cfg-post').value=cfgPost;
+}
+
+function saveConfig(){
+  cfgGet=document.getElementById('cfg-get').value.trim();
+  cfgPost=document.getElementById('cfg-post').value.trim();
+  if(!cfgGet||!cfgPost){toast('Cole as duas URLs antes de conectar','err');return;}
+  localStorage.setItem(SK_CFG,JSON.stringify({get:cfgGet,post:cfgPost}));
+  showLayout();
+  toast('Configuração salva! Carregando do SharePoint...','ok');
+  pullFromSP();
+}
+
+function showConfig(){
+  document.getElementById('setup-banner').style.display='flex';
+}
+
+function showLayout(){
+  document.getElementById('setup-banner').style.display='none';
+  document.getElementById('main-layout').style.display='grid';
+}
+
+// ── SHAREPOINT SYNC ────────────────────────────────────────────────────
+async function pullFromSP(){
+  if(!cfgGet){toast('Configure as URLs primeiro','err');return;}
+  setSyncStatus('spin','Carregando...');
+  try{
+    const r=await fetch(cfgGet,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get'})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const txt=await r.text();
+    if(!txt||txt.trim()===''||txt.trim()==='null'){
+      setSyncStatus('warn','SharePoint vazio');
+      toast('SharePoint ainda sem dados. Crie a árvore e salve!','warn');
+      return;
+    }
+    const data=JSON.parse(txt);
+    const incoming=JSON.stringify(data);
+    // conflict check: if we have local edits newer than last sync
+    const localStr=JSON.stringify({tree,nextId});
+    if(lastSyncTs>0 && localStr!==remoteSnapshot && remoteSnapshot!=='' && incoming!==remoteSnapshot){
+      remoteSnapshot=incoming;
+      openM('m-conflict');
+      return;
+    }
+    applyRemote(data,incoming);
+  }catch(e){
+    setSyncStatus('err','Erro ao carregar');
+    toast('Erro ao conectar com o SharePoint: '+e.message,'err');
+  }
+}
+
+function applyRemote(data,raw){
+  tree=data.tree||[];
+  nextId=data.nextId||1;
+  remoteSnapshot=raw||JSON.stringify(data);
+  lastSyncTs=Date.now();
+  localStorage.setItem(SK_TREE,JSON.stringify({tree,nextId}));
+  localStorage.setItem(SK_TS,String(lastSyncTs));
+  setSyncStatus('ok','Sincronizado '+new Date().toLocaleTimeString('pt-BR'));
+  renderAll();
+  toast('Árvore carregada do SharePoint!','ok');
+}
+
+async function pushToSP(){
+  if(!cfgPost){toast('Configure as URLs primeiro','err');return;}
+  setSyncStatus('spin','Salvando...');
+  const payload=JSON.stringify({tree,nextId});
+  try{
+    const r=await fetch(cfgPost,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    remoteSnapshot=payload;
+    lastSyncTs=Date.now();
+    localStorage.setItem(SK_TS,String(lastSyncTs));
+    setSyncStatus('ok','Salvo '+new Date().toLocaleTimeString('pt-BR'));
+    document.getElementById('s-sync').textContent=new Date().toLocaleTimeString('pt-BR');
+    toast('Árvore salva no SharePoint!','ok');
+  }catch(e){
+    setSyncStatus('err','Erro ao salvar');
+    toast('Erro ao salvar no SharePoint: '+e.message,'err');
+  }
+}
+
+async function manualSync(){
+  await pullFromSP();
+}
+
+function resolveConflict(choice){
+  closeM('m-conflict');
+  if(choice==='remote'){
+    try{const d=JSON.parse(remoteSnapshot);applyRemote(d,remoteSnapshot);}catch(e){}
+  } else {
+    pushToSP();
+  }
+}
+
+function setSyncStatus(state,msg){
+  const dot=document.getElementById('sync-dot');
+  const st=document.getElementById('sync-status');
+  dot.className='sync-dot';
+  if(state==='ok') dot.style.background='#4caf50';
+  else if(state==='warn') dot.classList.add('warn');
+  else if(state==='err') dot.classList.add('err');
+  else if(state==='spin') dot.classList.add('spin');
+  st.textContent=msg;
+}
+
+// ── STORAGE ────────────────────────────────────────────────────────────
+function localSave(){
+  localStorage.setItem(SK_TREE,JSON.stringify({tree,nextId}));
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────
+function makeNode(code,name,level,parentId=null,obs=''){
+  return{id:nextId++,code:code.toUpperCase(),name,level,parentId,obs,expanded:true,children:[]};
+}
+function find(id,nodes=tree){
+  for(let n of nodes){if(n.id===id)return n;const f=find(id,n.children);if(f)return f;}
+  return null;
+}
+function del(id,nodes=tree){
+  for(let i=0;i<nodes.length;i++){
+    if(nodes[i].id===id){nodes.splice(i,1);return true;}
+    if(del(id,nodes[i].children))return true;
+  }
+  return false;
+}
+function buildCode(node){
+  if(!node.parentId)return node.code;
+  const p=find(node.parentId);
+  if(!p)return node.code;
+  return buildCode(p)+'-'+node.code;
+}
+function countAll(nodes=tree){let c=0;for(let n of nodes){c++;c+=countAll(n.children);}return c;}
+function countLv(lv,nodes=tree){let c=0;for(let n of nodes){if(n.level===lv)c++;c+=countLv(lv,n.children);}return c;}
+function maxDep(nodes=tree){let m=0;for(let n of nodes)m=Math.max(m,1+maxDep(n.children));return m;}
+
+// ── RENDER ─────────────────────────────────────────────────────────────
+function renderAll(){
+  const root=document.getElementById('tree-root');
+  const empty=document.getElementById('tree-empty');
+  root.innerHTML='';
+  if(tree.length===0){empty.style.display='block';updateStats();return;}
+  empty.style.display='none';
+  tree.forEach(n=>renderNode(n,root,[]));
+  updateStats();
+}
+
+function renderNode(node,container,ancestors){
+  const fc=buildCode(node);
+  const lc=LC[node.level]||'#888';
+  const lb=LB[node.level]||'#f5f5f5';
+  const match=searchTerm&&(node.name.toLowerCase().includes(searchTerm)||fc.toLowerCase().includes(searchTerm));
+  const wrap=document.createElement('div');
+
+  const row=document.createElement('div');
+  row.className='node-row'+(selId===node.id?' sel':'')+(match?' hit':'');
+  row.onclick=e=>{e.stopPropagation();selectNode(node.id);};
+
+  // indent
+  const ind=document.createElement('div');
+  ind.style.display='flex';
+  ancestors.forEach((isLast,i)=>{
+    const seg=document.createElement('div');
+    seg.className='indent-seg'+(i===ancestors.length-1?' last':'');
+    if(i===ancestors.length-1&&isLast)seg.style.cssText='border:none';
+    ind.appendChild(seg);
+  });
+  row.appendChild(ind);
+
+  // toggle
+  const tz=document.createElement('div');
+  tz.className='toggle-zone';
+  if(node.children.length>0){
+    const tb=document.createElement('div');
+    tb.className='tog';
+    tb.textContent=node.expanded?'−':'+';
+    tb.onclick=e=>{e.stopPropagation();node.expanded=!node.expanded;renderAll();};
+    tz.appendChild(tb);
+  }
+  row.appendChild(tz);
+
+  const dot=document.createElement('div');
+  dot.className='ndot';
+  dot.style.background=lc;
+  row.appendChild(dot);
+
+  const lw=document.createElement('div');
+  lw.className='nlabel';
+  const nm=document.createElement('span');nm.className='nname';nm.textContent=node.name;lw.appendChild(nm);
+  const cd=document.createElement('span');cd.className='ncode';cd.textContent=fc;lw.appendChild(cd);
+  if(node.children.length>0){const ct=document.createElement('span');ct.className='ncnt';ct.textContent='('+node.children.length+')';lw.appendChild(ct);}
+  const bd=document.createElement('span');bd.className='nbadge';bd.style.background=lb;bd.style.color=lc;bd.textContent='N'+node.level;lw.appendChild(bd);
+  row.appendChild(lw);
+  wrap.appendChild(row);
+
+  if(node.expanded&&node.children.length>0){
+    const cw=document.createElement('div');cw.className='children-wrap';
+    node.children.forEach((c,i)=>renderNode(c,cw,[...ancestors,i===node.children.length-1]));
+    wrap.appendChild(cw);
+  }
+  container.appendChild(wrap);
+}
+
+function updateStats(){
+  document.getElementById('s-total').textContent=countAll();
+  document.getElementById('s-eq').textContent=countLv(7);
+  document.getElementById('s-dep').textContent=maxDep();
+  document.getElementById('s-sel').textContent=selId?(find(selId)?.name||'—'):'—';
+  if(lastSyncTs>0) document.getElementById('s-sync').textContent=new Date(lastSyncTs).toLocaleTimeString('pt-BR');
+}
+
+// ── SELECTION ──────────────────────────────────────────────────────────
+function selectNode(id){
+  selId=id;
+  const n=find(id);
+  ['btn-add-child','btn-edit','btn-del'].forEach(b=>document.getElementById(b).disabled=!n);
+  renderNodePanel(n);
+  renderAll();
+}
+
+function renderNodePanel(n){
+  const panel=document.getElementById('node-panel');
+  if(!n){panel.innerHTML='<div class="np-empty">Selecione um nó<br>para ver detalhes</div>';return;}
+  const fc=buildCode(n);
+  const lc=LC[n.level]||'#888';
+  const lb=LB[n.level]||'#eee';
+  const lname=LEVELS.find(l=>l.n===n.level)?.name||'';
+  panel.innerHTML=`
+    <div style="font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-family:var(--mono);margin-top:0;margin-bottom:4px">Nome</div>
+    <div style="font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;margin-bottom:8px">${n.name}</div>
+    <div style="font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-family:var(--mono);margin-bottom:4px">Código SAP</div>
+    <div style="font-size:12px;font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;margin-bottom:8px;word-break:break-all">${fc}</div>
+    <span style="font-size:11px;padding:3px 8px;border-radius:4px;font-weight:600;background:${lb};color:${lc}">N${n.level} – ${lname}</span>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px;font-family:var(--mono)">${n.children.length} filho(s)</div>
+    ${n.obs?`<div style="font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-family:var(--mono);margin-top:8px;margin-bottom:4px">Observação</div><div style="font-size:12px;color:var(--text-muted);line-height:1.5">${n.obs}</div>`:''}
+  `;
+}
+
+// ── ADD / EDIT / DELETE ────────────────────────────────────────────────
+function openAdd(parentId){
+  addParentId=parentId;
+  const parent=parentId?find(parentId):null;
+  const sugg=parent?Math.min(parent.level+1,8):1;
+  document.getElementById('a-code').value='';
+  document.getElementById('a-name').value='';
+  document.getElementById('a-obs').value='';
+  document.getElementById('a-level').value=sugg;
+  document.getElementById('m-add-title').textContent=parent?'Adicionar Filho':'Adicionar Raiz';
+  document.getElementById('m-add-sub').textContent=parent?'Pai: '+buildCode(parent)+' — '+parent.name:'Novo nó raiz da árvore';
+  openM('m-add');
+  setTimeout(()=>document.getElementById('a-code').focus(),80);
+}
+
+function confirmAdd(){
+  const code=document.getElementById('a-code').value.trim();
+  const name=document.getElementById('a-name').value.trim();
+  const level=parseInt(document.getElementById('a-level').value);
+  const obs=document.getElementById('a-obs').value.trim();
+  if(!code||!name){toast('Preencha código e descrição','err');return;}
+  const node=makeNode(code,name,level,addParentId,obs);
+  if(addParentId){const p=find(addParentId);if(p){p.children.push(node);p.expanded=true;}}
+  else tree.push(node);
+  closeM('m-add');
+  selectNode(node.id);
+  localSave();
+  setSyncStatus('warn','Não salvo no SP');
+}
+
+function openEdit(){
+  if(!selId)return;
+  const n=find(selId);if(!n)return;
+  document.getElementById('e-code').value=n.code;
+  document.getElementById('e-name').value=n.name;
+  document.getElementById('e-level').value=n.level;
+  document.getElementById('e-obs').value=n.obs||'';
+  document.getElementById('e-code-sub').textContent=buildCode(n);
+  openM('m-edit');
+  setTimeout(()=>document.getElementById('e-name').focus(),80);
+}
+
+function confirmEdit(){
+  const n=find(selId);if(!n)return;
+  n.code=document.getElementById('e-code').value.trim().toUpperCase();
+  n.name=document.getElementById('e-name').value.trim();
+  n.level=parseInt(document.getElementById('e-level').value);
+  n.obs=document.getElementById('e-obs').value.trim();
+  closeM('m-edit');
+  renderAll();renderNodePanel(n);
+  localSave();setSyncStatus('warn','Não salvo no SP');
+}
+
+function delSel(){
+  if(!selId)return;
+  const n=find(selId);if(!n)return;
+  const msg=n.children.length>0
+    ?`Excluir "${n.name}" e seus ${n.children.length} filho(s)?`
+    :`Excluir "${n.name}"?`;
+  if(!confirm(msg))return;
+  del(selId);selId=null;
+  ['btn-add-child','btn-edit','btn-del'].forEach(b=>document.getElementById(b).disabled=true);
+  document.getElementById('node-panel').innerHTML='<div class="np-empty">Selecione um nó<br>para ver detalhes</div>';
+  renderAll();localSave();setSyncStatus('warn','Não salvo no SP');
+}
+
+// ── EXPAND / COLLAPSE ──────────────────────────────────────────────────
+function setExp(nodes,v){nodes.forEach(n=>{n.expanded=v;setExp(n.children,v);});}
+function expAll(){setExp(tree,true);renderAll();}
+function colAll(){setExp(tree,false);renderAll();}
+function expTo(max,nodes=tree){nodes.forEach(n=>{n.expanded=n.level<max;expTo(max,n.children);});renderAll();}
+
+// ── SEARCH ────────────────────────────────────────────────────────────
+function doSearch(v){
+  searchTerm=v.toLowerCase().trim();
+  if(searchTerm){
+    function vis(nodes){let f=false;nodes.forEach(n=>{const m=n.name.toLowerCase().includes(searchTerm)||buildCode(n).toLowerCase().includes(searchTerm);const cf=vis(n.children);if(m||cf){n.expanded=true;f=true;}});return f;}
+    vis(tree);
+  }
+  renderAll();
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────
+function setFmt(f){
+  expFmt=f;
+  ['sap','csv','txt'].forEach(x=>{
+    const b=document.getElementById('fmt-'+x);
+    b.style.borderColor=x===f?'var(--accent)':'var(--border)';
+    b.style.color=x===f?'var(--accent)':'var(--text)';
+  });
+  renderExp();
+}
+
+function renderExp(){
+  const lines=[];
+  function walk(nodes){
+    nodes.forEach(n=>{
+      const fc=buildCode(n);
+      const ind='    '.repeat(n.level-1);
+      if(expFmt==='sap') lines.push(ind+fc+'\t\t'+n.name);
+      else if(expFmt==='csv') lines.push([fc,n.name,'N'+n.level,LEVELS.find(l=>l.n===n.level)?.name||'',n.obs||''].join(';'));
+      else lines.push('│  '.repeat(Math.max(n.level-2,0))+(n.level>1?'├─ ':'')+n.name+' ['+fc+']');
+      walk(n.children);
+    });
+  }
+  if(expFmt==='csv') lines.unshift('Código;Descrição;Nível;Tipo;Observação');
+  walk(tree);
+  document.getElementById('exp-content').textContent=lines.join('\n')||'(árvore vazia)';
+}
+
+function showExport(){renderExp();openM('m-export');}
+function copyExp(){
+  navigator.clipboard.writeText(document.getElementById('exp-content').textContent)
+    .then(()=>toast('Copiado!','ok')).catch(()=>toast('Selecione e copie manualmente','warn'));
+}
+
+function exportJSON(){
+  const blob=new Blob([JSON.stringify({tree,nextId},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='arvore_pcm_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();toast('JSON salvo!','ok');
+}
+
+function openImport(){document.getElementById('imp-json').value='';openM('m-import');}
+function confirmImport(){
+  try{
+    const raw=document.getElementById('imp-json').value.trim();
+    const p=JSON.parse(raw);
+    if(p.tree&&Array.isArray(p.tree)){tree=p.tree;nextId=p.nextId||1;}
+    else if(Array.isArray(p)){tree=p;}
+    else throw new Error('Formato inválido');
+    closeM('m-import');selId=null;renderAll();localSave();
+    setSyncStatus('warn','Não salvo no SP');
+    toast('Importado!','ok');
+  }catch(e){alert('Erro: '+e.message);}
+}
+
+// ── CLEAR / EXAMPLE ───────────────────────────────────────────────────
+function clearAll(){
+  if(!confirm('Apagar toda a árvore local?'))return;
+  tree=[];nextId=1;selId=null;renderAll();localSave();
+  setSyncStatus('warn','Não salvo no SP');
+}
+
+function loadExample(){
+  if(tree.length>0&&!confirm('Substituir pela estrutura exemplo da Planta 5010?'))return;
+  tree=[];nextId=1;selId=null;
+  const pl=makeNode('PL5010','O-I RIO DE JANEIRO GC',1); tree.push(pl);
+  const prod=makeNode('PROD','Produção',2,pl.id); pl.children.push(prod);
+  const mix=makeNode('MIX','Casa de Mistura',3,prod.id); prod.children.push(mix);
+  const forn=makeNode('FOR','Fornos',3,prod.id); prod.children.push(forn);
+  const fab=makeNode('FAB','Fabricação',3,prod.id); prod.children.push(fab);
+  const dec=makeNode('DEC','Decoração',3,prod.id); prod.children.push(dec);
+  ['L91','L92','L93'].forEach((lc,li)=>{
+    const ln=makeNode(lc,'Linha '+lc.slice(1),4,fab.id); fab.children.push(ln);
+    const zq=makeNode('ZQ','Zona Quente',5,ln.id); ln.children.push(zq);
+    const zf=makeNode('ZF','Zona Fria',5,ln.id); ln.children.push(zf);
+    const mf=makeNode('MAQFORM','Máquinas de Formação',6,zq.id); zq.children.push(mf);
+    ['01','02','03'].forEach(n=>{mf.children.push(makeNode('MF-'+lc.slice(1)+'-'+n,'Máquina Formação '+n,7,mf.id));});
+    const rc=makeNode('REC','Recozimento / Lehr',6,zq.id); zq.children.push(rc);
+    rc.children.push(makeNode('LEHR-'+lc.slice(1)+'-01','Lehr '+lc.slice(1)+'-01',7,rc.id));
+    const tr=makeNode('TRAN','Transportadores',6,zf.id); zf.children.push(tr);
+    ['01','02'].forEach(n=>{tr.children.push(makeNode('TRAN-'+lc.slice(1)+'-'+n,'Transportador '+n,7,tr.id));});
+    const ins=makeNode('INSP','Inspetores',6,zf.id); zf.children.push(ins);
+    ['FPX2-01','ICK-01','ART-01'].forEach(n=>{ins.children.push(makeNode(n,'Inspetor '+n,7,ins.id));});
+    const pal=makeNode('PAL','Paletização',6,zf.id); zf.children.push(pal);
+    ['01','02'].forEach(n=>{pal.children.push(makeNode('PAL-'+lc.slice(1)+'-'+n,'Paletizadora '+n,7,pal.id));});
+  });
+  ['L92','L93'].forEach((lc,li)=>{
+    const ln=makeNode(lc,'Decoração '+lc.slice(1),4,dec.id); dec.children.push(ln);
+    const zf=makeNode('ZF','Zona Fria',5,ln.id); ln.children.push(zf);
+    const dp=makeNode('DESPAL','Despaletização',6,zf.id); zf.children.push(dp);
+    dp.children.push(makeNode('TRAN-DEC-'+String(li*10+1).padStart(2,'0'),'Transportador DEC',7,dp.id));
+    const sg=makeNode('SERIG','Serigrafia',6,zf.id); zf.children.push(sg);
+    ['01','02'].forEach(n=>{sg.children.push(makeNode('STRUTZ-'+String(li*2+parseInt(n)).padStart(2,'0'),'Strutz '+String(li*2+parseInt(n)).padStart(2,'0'),7,sg.id));});
+    const rd=makeNode('REC','Recozimento',6,zf.id); zf.children.push(rd);
+    rd.children.push(makeNode('LEHR-DEC-0'+(li+1),'Lehr DEC 0'+(li+1),7,rd.id));
+    const pd=makeNode('PAL','Paletização',6,zf.id); zf.children.push(pd);
+    pd.children.push(makeNode('PAL-DEC-0'+(li+1),'Paletizadora DEC',7,pd.id));
+    pd.children.push(makeNode('ENV-DEC-0'+(li+1),'Envolvedora DEC',7,pd.id));
+  });
+  const ut=makeNode('UTIL','Utilidades',2,pl.id); pl.children.push(ut);
+  [['ELE','Energia Elétrica'],['COMP','Ar Comprimido'],['REFR','Refrigeração'],['VPR','Vapor'],['AGUA','Tratamento de Água']].forEach(([c,n])=>{ut.children.push(makeNode(c,n,3,ut.id));});
+  const adm=makeNode('ADM','Administração',2,pl.id); pl.children.push(adm);
+  const log=makeNode('LOG','Logística',2,pl.id); pl.children.push(log);
+  renderAll();localSave();setSyncStatus('warn','Não salvo no SP');
+  toast('Estrutura exemplo carregada!','ok');
+}
+
+// ── LEGEND ────────────────────────────────────────────────────────────
+function buildLegend(){
+  const el=document.getElementById('level-legend');
+  LEVELS.forEach(l=>{
+    const item=document.createElement('div');item.className='level-item';
+    item.innerHTML=`<div class="level-dot" style="background:${l.color}"></div><span class="level-name">${l.name}</span><span class="level-n">N${l.n}</span>`;
+    item.onclick=()=>expTo(l.n+1);item.title='Expandir até N'+l.n;
+    el.appendChild(item);
+  });
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────
+function openM(id){document.getElementById(id).classList.add('open');}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+function showFlowGuide(){openM('m-guide');}
+document.querySelectorAll('.modal-bg').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+
+// ── TOAST ─────────────────────────────────────────────────────────────
+let _tt;
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(type?' '+type:'')+' show';
+  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') document.querySelectorAll('.modal-bg.open').forEach(m=>m.classList.remove('open'));
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();pushToSP();}
+  if(e.key==='F2'&&selId)openEdit();
+  if(e.key==='Delete'&&selId&&!document.querySelector('.modal-bg.open'))delSel();
+  if(e.key==='Insert'&&!document.querySelector('.modal-bg.open'))openAdd(selId);
+});
+['m-add','m-edit'].forEach(mid=>{
+  document.getElementById(mid).addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey&&e.target.tagName!=='TEXTAREA'){
+      mid==='m-add'?confirmAdd():confirmEdit();
+    }
+  });
+});
+</script>
+</body>
+</html>
