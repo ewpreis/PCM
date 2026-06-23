@@ -165,7 +165,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 </div>
 
 <!-- SETUP BANNER -->
-<div class="setup-banner" id="setup-banner">
+<div class="setup-banner" id="setup-banner" style="display:none">
   <div>
     <h2>⚙ Configurar conexão com SharePoint via Power Automate</h2>
     <p>Cole abaixo as URLs dos dois flows que você criou no Power Automate. Depois de salvo, a equipe toda usa o mesmo arquivo HTML e os dados ficam no SharePoint.</p>
@@ -187,7 +187,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   </div>
 </div>
 
-<div class="layout" id="main-layout" style="display:none">
+<div class="layout" id="main-layout">
 
   <!-- SIDEBAR -->
   <div class="sidebar">
@@ -450,23 +450,21 @@ const SK_TS='pcm_last_sync_ts';
 
 // ── STATE ──────────────────────────────────────────────────────────────
 let tree=[], selId=null, nextId=1, addParentId=null, expFmt='sap', searchTerm='';
-let cfgGet='', cfgPost='';
+let cfgGet='https://defaultaf0ee3430c8042beaeacd688e63ecf.48.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a53647cee077426989d2f54b9700b7f4/triggers/manual/paths/invoke?api-version=1', cfgPost='https://defaultaf0ee3430c8042beaeacd688e63ecf.48.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/922cf2948d9a40f18bb194e7786224a7/triggers/manual/paths/invoke?api-version=1';
 let lastSyncTs=0;
 let remoteSnapshot='';
 
 // ── INIT ───────────────────────────────────────────────────────────────
 (function init(){
   buildLegend();
-  loadConfig();
   const saved=localStorage.getItem(SK_TREE);
   if(saved){try{const p=JSON.parse(saved);tree=p.tree||[];nextId=p.nextId||1;}catch(e){}}
   const ts=localStorage.getItem(SK_TS);
   if(ts) lastSyncTs=parseInt(ts);
+  showLayout();
   renderAll();
-  if(cfgGet&&cfgPost){
-    showLayout();
-    setSyncStatus('warn','Não sincronizado');
-  }
+  // Auto-pull from SharePoint on load
+  setTimeout(()=>pullFromSP(), 800);
 })();
 
 function loadConfig(){
@@ -500,7 +498,7 @@ async function pullFromSP(){
   if(!cfgGet){toast('Configure as URLs primeiro','err');return;}
   setSyncStatus('spin','Carregando...');
   try{
-    const r=await fetch(cfgGet,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get'})});
+    const r=await fetch(cfgGet,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'get'})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const txt=await r.text();
     if(!txt||txt.trim()===''||txt.trim()==='null'){
@@ -520,7 +518,12 @@ async function pullFromSP(){
     applyRemote(data,incoming);
   }catch(e){
     setSyncStatus('err','Erro ao carregar');
-    toast('Erro ao conectar com o SharePoint: '+e.message,'err');
+    const msg = e.message.includes('401') 
+      ? 'Acesso negado (401). Verifique se o flow está ativo e com "Anyone" habilitado.'
+      : e.message.includes('Failed to fetch')
+      ? 'Bloqueado pelo navegador (CORS). Tente acessar pelo Teams ou SharePoint.'
+      : 'Erro: '+e.message;
+    toast(msg,'err');
   }
 }
 
@@ -541,7 +544,7 @@ async function pushToSP(){
   setSyncStatus('spin','Salvando...');
   const payload=JSON.stringify({tree,nextId});
   try{
-    const r=await fetch(cfgPost,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});
+    const r=await fetch(cfgPost,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({payload})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     remoteSnapshot=payload;
     lastSyncTs=Date.now();
